@@ -152,6 +152,12 @@ IP, Device ID, Local Key e versão do protocolo (3.3/3.4/3.5).
 | `MQTT_DISCOVERY` | `homeassistant` | prefixo de discovery |
 | `BMS_NAME` / `BMS_ID` | `BMS 8S 24V` / `bms8s` | nome/ID no HA |
 
+## Instruções para assistentes de IA
+
+- `AGENTS.md` — fonte da verdade (OpenCode/Codex, e base para os demais)
+- `CLAUDE.md` — Claude Code
+- `.github/copilot-instructions.md` — GitHub Copilot
+
 ## Segurança
 
 - `.env`, `tuya.json`, certificados, estado, logs e `ha-config/` ficam no
