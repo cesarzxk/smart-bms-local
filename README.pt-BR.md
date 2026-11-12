@@ -175,6 +175,20 @@ Duas opções em **[`docs/PORTAINER.md`](docs/PORTAINER.md)**:
 - `CLAUDE.md` — Claude Code
 - `.github/copilot-instructions.md` — GitHub Copilot
 
+## Manutenção
+
+Entidades duplicadas normalmente são **configs de discovery retidos** antigos
+(ex.: após mudar o `BMS_ID` ou atualizar de uma imagem antiga). Limpe:
+
+```bash
+DRY_RUN=1 sudo bash scripts/clean-discovery.sh   # prévia
+sudo bash scripts/clean-discovery.sh              # remove + reinicia o publicador
+```
+
+O script remove tópicos `.../config` retidos cujo nome contém `bms`
+(ajuste com `FILTER=`), depois reinicia o publicador para republicar o discovery
+atual.
+
 ## Segurança
 
 - `.env`, `tuya.json`, certificados, estado, logs e `ha-config/` ficam no

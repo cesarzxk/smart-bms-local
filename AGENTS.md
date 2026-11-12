@@ -47,6 +47,7 @@ BMS ──UART──► dongle ──TLS/MQTT:1883──► proxy (src/bms_proxy
 | `src/arp_spoof.py` | one-way ARP spoof for the dongle |
 | `scripts/bms-service.sh` | permanent service: ARP + DNAT + proxy |
 | `scripts/bms_tap.sh` | manual test wrapper (N seconds) |
+| `scripts/clean-discovery.sh` | removes stale retained HA discovery configs (duplicate entities) |
 | `deploy/*.service` | systemd units (adjust path/user) |
 | `docker-compose.yml` | Home Assistant + Mosquitto |
 | `mosquitto/config/mosquitto.conf` | broker (anonymous for testing) |
@@ -117,6 +118,7 @@ BMS ──UART──► dongle ──TLS/MQTT:1883──► proxy (src/bms_proxy
 | HA rejects `mqtt:` in YAML | MQTT integration moved to UI | remove it from YAML and add via *Add Integration → MQTT* |
 | Port 1883 conflict | proxy and Mosquitto | Mosquitto on host **1884** (`1884:1883`) |
 | `unavailable` entities / template warnings | publisher picked up a partial state | `bms_mqtt.py` only publishes with `voltage`/`soc`/`cells` and merges |
+| Duplicate entities | stale retained discovery after changing `BMS_ID`/image | `sudo bash scripts/clean-discovery.sh` (then restart `bms-mqtt`) |
 | Dongle IP changes | DHCP | DHCP reservation by MAC |
 
 ## 7. Reproducing from scratch
