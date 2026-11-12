@@ -2,21 +2,22 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-Lê um BMS LiFePO4 via dongle Wi‑Fi/BT (Daly/Modbus) **sem depender da nuvem do
-fabricante para a automação**, publica os dados no **MQTT** e integra no
-**Home Assistant**. Opcionalmente faz um *proxy transparente* para a nuvem do
-fabricante continuar funcionando e usa **LocalTuya** para controlar dispositivos
-Tuya na LAN.
+**English** | [Português](README.pt-BR.md)
 
-> Uso pretendido: o **seu próprio** dongle/BMS. O proxy é um MITM local; use por
-> sua conta e risco.
+Read a LiFePO4 BMS through the vendor's Wi‑Fi/BT dongle **without relying on the
+Tuya cloud API**, publish the data over **MQTT**, and integrate it with
+**Home Assistant**. Optionally keep the vendor cloud working through a
+transparent proxy and control Tuya devices on the LAN with **LocalTuya**.
 
-## Arquitetura
+> Intended for your **own** dongle/BMS. The proxy is a local MITM; use at your
+> own risk.
+
+## Architecture
 
 ```
-BMS ──UART──► dongle ──TLS/MQTT──► proxy local ──TLS──► nuvem do fabricante
+BMS ──UART──► dongle ──TLS/MQTT──► local proxy ──TLS──► vendor cloud (Aliyun)
                                       │
-                                      └── decodifica Modbus ──► bms_state.json
+                                      └── decodes Modbus ──► bms_state.json
                                                                     │
                                                           bms_mqtt.py
                                                                     │
@@ -27,59 +28,62 @@ BMS ──UART──► dongle ──TLS/MQTT──► proxy local ──TLS─�
                                                             LocalTuya (LAN)
 ```
 
-## Arquivos
+## Files
 
-| Arquivo | Função |
+| Path | Purpose |
 |---|---|
-| `src/bms_proxy.py` | proxy TLS/MQTT + polling Modbus (injeta `WIFI_AP_BSSID`) |
-| `src/bms_codec.py` | decodifica os blocos Modbus (`WIFI_Band`) |
-| `src/bms_mqtt.py` | publica no MQTT e registra as entidades no HA |
-| `src/arp_spoof.py` | ARP spoof unidirecional do dongle |
-| `scripts/bms-service.sh` | serviço permanente (ARP + DNAT + proxy) |
-| `scripts/bms_tap.sh` | versão manual para testes |
+| `src/bms_proxy.py` | TLS/MQTT proxy + Modbus polling (injects `WIFI_AP_BSSID`) |
+| `src/bms_codec.py` | decodes the Modbus blocks (`WIFI_Band`) |
+| `src/bms_mqtt.py` | publishes to MQTT and registers HA entities (discovery) |
+| `src/arp_spoof.py` | one-way ARP spoof for the dongle |
+| `scripts/bms-service.sh` | permanent service (ARP + DNAT + proxy) |
+| `scripts/bms_tap.sh` | manual test wrapper |
+| `deploy/*.service` | systemd units (adjust path/user) |
 | `docker-compose.yml` | Home Assistant + Mosquitto |
-| `deploy/*.service` | units systemd (ajuste caminho/usuário) |
-| `.env.example` | todas as configurações |
+| `mosquitto/config/mosquitto.conf` | broker (anonymous for testing) |
+| `ha-config/configuration.yaml` | `default_config:` (MQTT is configured via UI) |
+| `.env.example` | all settings (copy to `.env`) |
+| `docs/HOMELAB.md` | homelab deployment guide (Portuguese) |
 
-## Requisitos
+## Requirements
 
-- Linux com `python3`, `openssl`, `iptables`, Docker + Compose.
-- Dongle na mesma LAN, com **IP fixo/reserva DHCP**.
-- Home Assistant e Mosquitto (via compose).
+- Linux with `python3`, `python3-venv`, `openssl`, `iptables`, Docker + Compose.
+- The dongle on the **same L2/VLAN** as this machine, with a DHCP reservation.
+- Home Assistant and Mosquitto (via compose).
 
-## 1. Configuração
+## 1. Configuration
 
 ```bash
 cp .env.example .env
 $EDITOR .env
 ```
 
-Preencha no mínimo:
+Fill in at least:
 
-- `BMS_DONGLE_IP`, `BMS_DONGLE_MAC` (veja no DHCP do roteador; o MAC costuma
-  bater com o serial do dongle)
-- `BMS_HOST_IP` (IP desta máquina) — ou deixe vazio para auto-detectar
-- `BMS_PRODUCT_KEY`, `BMS_DEVICE_NAME` — aparecem no `CONNECT` do dongle
-  (rode o proxy uma vez e veja o log; veja abaixo)
+- `BMS_DONGLE_IP`, `BMS_DONGLE_MAC` (from the router's DHCP list; the MAC often
+  matches the dongle serial)
+- `BMS_HOST_IP` (this machine's IP) — or leave empty for auto-detection
+- `BMS_PRODUCT_KEY`, `BMS_DEVICE_NAME` — shown in the dongle's `CONNECT`
+  (run the proxy once and read the log; see below)
 
-### Como descobrir ProductKey/DeviceName
+### Discovering ProductKey / DeviceName
 
-Rode o tap manual por alguns segundos e observe o log:
+Run the manual tap for a few seconds and watch the log:
 
 ```bash
 sudo bash scripts/bms_tap.sh 60
 ```
 
-No `CONNECT` aparece o ClientID:
+The `CONNECT` packet contains a ClientID like:
 
 ```
 <ProductKey>.<DeviceName>|securemode=...
 ```
 
-Exemplo: `a1abc...xyz.FhGyi...|...` → ProductKey `a1abc...xyz`,
+Example: `a1abc...xyz.FhGyi...|...` → ProductKey `a1abc...xyz`,
 DeviceName `FhGyi...`.
 
-Dependências Python:
+Python dependencies:
 
 ```bash
 python3 -m venv .venv
@@ -92,96 +96,93 @@ python3 -m venv .venv
 docker compose up -d
 ```
 
-- HA: `http://<BMS_HOST_IP>:8123` (crie a conta no primeiro acesso)
+- HA: `http://<BMS_HOST_IP>:8123` (create the account on first access)
 - Mosquitto: host `1884` → broker `1883`
 
-No HA: **Settings → Devices & Services → Add Integration → MQTT**
+In HA: **Settings → Devices & Services → Add Integration → MQTT**
 - Broker: `mosquitto`
 - Port: `1883`
-- Sem usuário/senha (config de teste; para produção configure auth no
-  `mosquitto/config/mosquitto.conf`)
+- No username/password (test setup; enable auth in
+  `mosquitto/config/mosquitto.conf` for production)
 
-## 3. Rodar o tap e o publicador
+## 3. Run the tap and the publisher
 
-Teste manual:
+Manual test:
 
 ```bash
-sudo bash scripts/bms_tap.sh 120      # intercepta o dongle
-.venv/bin/python src/bms_mqtt.py      # publica no MQTT
+sudo bash scripts/bms_tap.sh 120      # intercepts the dongle
+.venv/bin/python src/bms_mqtt.py      # publishes to MQTT
 ```
 
-Permanente (systemd):
+Permanent (systemd):
 
 ```bash
-# ajuste /opt/bms e User=bms nos units de deploy/ para o caminho/usuário da sua instalação
+# adjust /opt/bms and User=bms in deploy/ to your install path/user
 sudo cp deploy/bms-tap.service deploy/bms-mqtt.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now bms-tap bms-mqtt
 ```
 
-> Os units em `deploy/` usam `/opt/bms` e `User=bms` como exemplo; troque pelo caminho
-> onde você clonou o projeto e pelo usuário que roda o publicador.
+The entities show up automatically in HA: SOC, voltage, current, power,
+cell max/min, cells 1–8, temperature and MOS.
 
-As entidades aparecem sozinhas no HA: SOC, tensão, corrente, potência,
-célula máx/mín, células 1–8, temperatura e MOS.
+## 4. LocalTuya (optional)
 
-## 4. LocalTuya (opcional)
+To control real Tuya devices **on the LAN** (no cloud), install
+[LocalTuya](https://github.com/rospogrigio/localtuya) into
+`ha-config/custom_components/localtuya` and add each device with:
+IP, Device ID, Local Key and protocol version (3.3/3.4/3.5).
 
-Para controlar dispositivos Tuya reais **na LAN** (sem nuvem), instale o
-[LocalTuya](https://github.com/rospogrigio/localtuya) em
-`ha-config/custom_components/localtuya` e adicione cada dispositivo com:
-IP, Device ID, Local Key e versão do protocolo (3.3/3.4/3.5).
+## Homelab deployment
 
-## Deploy no homelab
+Step-by-step (network, HA migration, cutover, validation) in
+[`docs/HOMELAB.md`](docs/HOMELAB.md) (Portuguese).
 
-Passo a passo (rede, migração do HA, cutover, validação) em
-**[`docs/HOMELAB.md`](docs/HOMELAB.md)**.
+## Environment variables
 
-## Variáveis de ambiente
-
-| Variável | Padrão | Descrição |
+| Variable | Default | Description |
 |---|---|---|
-| `BMS_IFACE` | auto | interface da LAN |
-| `BMS_HOST_IP` | auto | IP desta máquina |
-| `BMS_DONGLE_IP` | — | IP do dongle |
-| `BMS_DONGLE_MAC` | — | MAC do dongle |
+| `BMS_IFACE` | auto | LAN interface |
+| `BMS_HOST_IP` | auto | this machine's IP |
+| `BMS_DONGLE_IP` | — | dongle IP |
+| `BMS_DONGLE_MAC` | — | dongle MAC |
 | `BMS_GATEWAY_IP` | auto | gateway |
-| `BMS_GATEWAY_MAC` | auto | MAC do gateway |
-| `BMS_REAL_HOST` | `public.iot-as-mqtt.us-east-1.aliyuncs.com` | endpoint do fabricante |
-| `BMS_REAL_PORT` | `1883` | porta MQTT/TLS |
-| `BMS_PRODUCT_KEY` | — | ProductKey do dongle |
-| `BMS_DEVICE_NAME` | — | DeviceName do dongle |
-| `BMS_POLL_INTERVAL` | `30` | intervalo do polling (s) |
-| `BMS_POLL_CMD_DATA` | `D2030000007ED649` | leitura Modbus dos dados |
-| `BMS_POLL_CMD_TEMP` | `D203008000705665` | leitura Modbus das temperaturas |
+| `BMS_GATEWAY_MAC` | auto | gateway MAC |
+| `BMS_REAL_HOST` | `public.iot-as-mqtt.us-east-1.aliyuncs.com` | vendor endpoint |
+| `BMS_REAL_PORT` | `1883` | MQTT/TLS port |
+| `BMS_PRODUCT_KEY` | — | dongle ProductKey |
+| `BMS_DEVICE_NAME` | — | dongle DeviceName |
+| `BMS_POLL_INTERVAL` | `30` | polling interval (s) |
+| `BMS_POLL_CMD_DATA` | `D2030000007ED649` | Modbus read (data) |
+| `BMS_POLL_CMD_TEMP` | `D203008000705665` | Modbus read (temperatures) |
 | `MQTT_HOST` / `MQTT_PORT` | `127.0.0.1` / `1884` | broker |
-| `MQTT_PREFIX` | `bms` | tópico de estado |
-| `MQTT_DISCOVERY` | `homeassistant` | prefixo de discovery |
-| `BMS_NAME` / `BMS_ID` | `BMS 8S 24V` / `bms8s` | nome/ID no HA |
+| `MQTT_PREFIX` | `bms` | state topic |
+| `MQTT_DISCOVERY` | `homeassistant` | discovery prefix |
+| `BMS_NAME` / `BMS_ID` | `BMS 8S 24V` / `bms8s` | HA device name/ID |
 
-## Instruções para assistentes de IA
+## AI assistant instructions
 
-- `AGENTS.md` — fonte da verdade (OpenCode/Codex, e base para os demais)
+- `AGENTS.md` — source of truth (OpenCode/Codex; Portuguese)
 - `CLAUDE.md` — Claude Code
 - `.github/copilot-instructions.md` — GitHub Copilot
 
-## Segurança
+## Security
 
-- `.env`, `tuya.json`, certificados, estado, logs e `ha-config/` ficam no
-  `.gitignore`.
-- Rode o tap como root apenas na sua rede.
-- Para produção, ative autenticação no Mosquitto e não exponha o HA na internet
-  sem VPN.
+- `.env`, `tuya.json`, certificates, state, logs and `ha-config/` are
+  `.gitignore`d.
+- Run the tap as root only on your own network.
+- For production, enable Mosquitto authentication and do not expose HA to the
+  internet without a VPN.
 
-## Licença
+## License
 
-MIT — veja [LICENSE](LICENSE).
+MIT — see [LICENSE](LICENSE).
 
 ## Troubleshooting
 
-- **Dongle não conecta**: confira IP/MAC, reserva DHCP, e se o ARP spoof está
-  ativo (`systemctl status bms-tap`).
-- **`clientId is invalid`/`permission deny`**: são da API do Tuya, não deste
-  projeto; aqui não usamos a API do Tuya.
-- **Sem dados no HA**: veja `bms_state.json`, `bms_tap.log` e
+- **Dongle does not connect**: check IP/MAC, DHCP reservation, and that the ARP
+  spoof is running (`systemctl status bms-tap`).
+- **`clientId is invalid` / `permission deny`**: those are Tuya cloud API errors;
+  this project does not use that API.
+- **No data in HA**: check `bms_state.json`, `bms_tap.log` and
   `journalctl -u bms-tap -f`.
