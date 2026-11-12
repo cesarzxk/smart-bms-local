@@ -63,6 +63,25 @@ falha com `No such device`.
 
 `TZ`, `BMS_NAME`, `BMS_ID`, `MQTT_*` têm defaults.
 
+## Instalar LocalTuya automaticamente
+
+Defina na stack:
+
+```env
+INSTALL_LOCALTUYA=1
+```
+
+O serviço `localtuya-init` roda **antes** do HA e copia o custom component para
+`/config/custom_components/localtuya` (se já existir, não faz nada). O container
+fica parado depois — é normal.
+
+Para atualizar o componente, remova a pasta do volume e reimplante, ou use
+`LOCALTUYA_REPO` apontando para uma tag/branch:
+
+```env
+LOCALTUYA_REPO=https://github.com/rospogrigio/localtuya.git
+```
+
 ## Depois do deploy
 
 1. Abra `http://<host-do-portainer>:8123` e crie a conta do HA.

@@ -16,12 +16,41 @@ services:
     volumes:
       - mosquitto_data:/mosquitto/data
 
+  localtuya-init:
+    image: alpine/git:latest
+    container_name: localtuya-init
+    restart: "no"
+    environment:
+      - INSTALL_LOCALTUYA=${INSTALL_LOCALTUYA:-0}
+      - LOCALTUYA_REPO=${LOCALTUYA_REPO:-https://github.com/rospogrigio/localtuya.git}
+    volumes:
+      - ha_config:/config
+    command:
+      - sh
+      - -c
+      - |
+        if [ "$$INSTALL_LOCALTUYA" != "1" ]; then
+          echo "[localtuya-init] INSTALL_LOCALTUYA != 1, skipping"
+          exit 0
+        fi
+        if [ -d /config/custom_components/localtuya ]; then
+          echo "[localtuya-init] localtuya already installed"
+          exit 0
+        fi
+        mkdir -p /config/custom_components
+        git clone --depth 1 "$$LOCALTUYA_REPO" /tmp/localtuya || { echo "[localtuya-init] clone failed"; exit 0; }
+        cp -r /tmp/localtuya/custom_components/localtuya /config/custom_components/ || { echo "[localtuya-init] copy failed"; exit 0; }
+        echo "[localtuya-init] installed"
+
   homeassistant:
     image: ghcr.io/home-assistant/home-assistant:stable
     container_name: homeassistant
     restart: unless-stopped
     depends_on:
-      - mosquitto
+      mosquitto:
+        condition: service_started
+      localtuya-init:
+        condition: service_completed_successfully
     ports:
       - "8123:8123"
     environment:

@@ -133,6 +133,9 @@ To control real Tuya devices **on the LAN** (no cloud), install
 `ha-config/custom_components/localtuya` and add each device with:
 IP, Device ID, Local Key and protocol version (3.3/3.4/3.5).
 
+In the Portainer stack set `INSTALL_LOCALTUYA=1` to install the custom
+component automatically (init container) before HA starts.
+
 ## Homelab deployment
 
 Step-by-step (network, HA migration, cutover, validation) in
