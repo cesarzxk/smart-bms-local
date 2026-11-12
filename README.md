@@ -130,6 +130,11 @@ Para controlar dispositivos Tuya reais **na LAN** (sem nuvem), instale o
 `ha-config/custom_components/localtuya` e adicione cada dispositivo com:
 IP, Device ID, Local Key e versão do protocolo (3.3/3.4/3.5).
 
+## Deploy no homelab
+
+Passo a passo (rede, migração do HA, cutover, validação) em
+**[`docs/HOMELAB.md`](docs/HOMELAB.md)**.
+
 ## Variáveis de ambiente
 
 | Variável | Padrão | Descrição |
