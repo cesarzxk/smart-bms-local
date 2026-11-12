@@ -1,0 +1,26 @@
+# segredos e configuração local
+.env
+.env.*
+!.env.example
+tuya.json
+tuya.json.bak
+
+# runtime
+bms_state.json
+bms_tap.log
+*.pcap
+cert.pem
+key.pem
+__pycache__/
+*.pyc
+.venv/
+
+# Home Assistant (só o configuration.yaml entra)
+ha-config/*
+!ha-config/configuration.yaml
+
+# Mosquitto
+mosquitto/data/*
+mosquitto/log/*
+!mosquitto/data/.gitkeep
+!mosquitto/log/.gitkeep

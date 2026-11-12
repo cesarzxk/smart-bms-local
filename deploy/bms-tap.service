@@ -1,0 +1,15 @@
+[Unit]
+Description=BMS local tap (ARP+DNAT+proxy)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/bms
+EnvironmentFile=-/opt/bms/.env
+ExecStart=/bin/bash /opt/bms/scripts/bms-service.sh
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

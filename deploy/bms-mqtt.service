@@ -1,0 +1,16 @@
+[Unit]
+Description=BMS MQTT publisher (Home Assistant)
+After=network-online.target docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/bms
+EnvironmentFile=-/opt/bms/.env
+ExecStart=/opt/bms/.venv/bin/python -u /opt/bms/src/bms_mqtt.py
+Restart=always
+RestartSec=5
+User=bms
+
+[Install]
+WantedBy=multi-user.target
