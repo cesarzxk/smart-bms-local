@@ -7,8 +7,12 @@ services:
     restart: unless-stopped
     ports:
       - "1884:1883"
-    command: >
-      sh -c "printf 'listener 1883\nallow_anonymous true\npersistence true\npersistence_location /mosquitto/data/\n' > /mosquitto/config/mosquitto.conf && exec mosquitto -c /mosquitto/config/mosquitto.conf"
+    command:
+      - sh
+      - -c
+      - |
+        printf '%s\n' 'listener 1883' 'allow_anonymous true' 'persistence true' 'persistence_location /mosquitto/data/' > /tmp/mosquitto.conf
+        exec mosquitto -c /tmp/mosquitto.conf
     volumes:
       - mosquitto_data:/mosquitto/data
 
