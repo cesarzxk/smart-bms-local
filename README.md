@@ -1,5 +1,7 @@
 # BMS → Home Assistant (local)
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 Lê um BMS LiFePO4 via dongle Wi‑Fi/BT (Daly/Modbus) **sem depender da nuvem do
 fabricante para a automação**, publica os dados no **MQTT** e integra no
 **Home Assistant**. Opcionalmente faz um *proxy transparente* para a nuvem do
@@ -170,6 +172,10 @@ Passo a passo (rede, migração do HA, cutover, validação) em
 - Rode o tap como root apenas na sua rede.
 - Para produção, ative autenticação no Mosquitto e não exponha o HA na internet
   sem VPN.
+
+## Licença
+
+MIT — veja [LICENSE](LICENSE).
 
 ## Troubleshooting
 
