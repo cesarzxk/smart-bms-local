@@ -139,6 +139,14 @@ IP, Device ID, Local Key e versão do protocolo (3.3/3.4/3.5).
 Passo a passo (rede, migração do HA, cutover, validação) em
 **[`docs/HOMELAB.md`](docs/HOMELAB.md)**.
 
+## Portainer
+
+Duas opções em **[`docs/PORTAINER.md`](docs/PORTAINER.md)**:
+
+- build pelo Git: `docker-compose.portainer.yml`
+- imagem do GHCR: `docker-compose.portainer-image.yml`
+  (`ghcr.io/cesarzxk/smart-bms-local:latest`, gerada pelo GitHub Actions).
+
 ## Variáveis de ambiente
 
 | Variável | Padrão | Descrição |

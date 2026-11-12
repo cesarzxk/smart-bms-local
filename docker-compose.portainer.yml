@@ -1,0 +1,77 @@
+# Stack para Portainer (build do código no host).
+# Variáveis: copie stack.env.example para as "Environment variables" da stack.
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: mosquitto
+    restart: unless-stopped
+    ports:
+      - "1884:1883"
+    command: >
+      sh -c "printf 'listener 1883\nallow_anonymous true\npersistence true\npersistence_location /mosquitto/data/\n' > /mosquitto/config/mosquitto.conf && exec mosquitto -c /mosquitto/config/mosquitto.conf"
+    volumes:
+      - mosquitto_data:/mosquitto/data
+
+  homeassistant:
+    image: ghcr.io/home-assistant/home-assistant:stable
+    container_name: homeassistant
+    restart: unless-stopped
+    depends_on:
+      - mosquitto
+    ports:
+      - "8123:8123"
+    environment:
+      - TZ=${TZ:-America/Sao_Paulo}
+    volumes:
+      - ha_config:/config
+
+  bms:
+    build: .
+    image: smart-bms-local:latest
+    container_name: bms-tap
+    restart: unless-stopped
+    network_mode: host
+    privileged: true
+    environment:
+      BMS_DATA_DIR: /data
+      BMS_DONGLE_IP: ${BMS_DONGLE_IP}
+      BMS_DONGLE_MAC: ${BMS_DONGLE_MAC}
+      BMS_HOST_IP: ${BMS_HOST_IP:-}
+      BMS_IFACE: ${BMS_IFACE:-}
+      BMS_GATEWAY_IP: ${BMS_GATEWAY_IP:-}
+      BMS_GATEWAY_MAC: ${BMS_GATEWAY_MAC:-}
+      BMS_REAL_HOST: ${BMS_REAL_HOST:-public.iot-as-mqtt.us-east-1.aliyuncs.com}
+      BMS_REAL_PORT: ${BMS_REAL_PORT:-1883}
+      BMS_PRODUCT_KEY: ${BMS_PRODUCT_KEY:-}
+      BMS_DEVICE_NAME: ${BMS_DEVICE_NAME:-}
+      BMS_POLL_INTERVAL: ${BMS_POLL_INTERVAL:-30}
+      BMS_POLL_CMD_DATA: ${BMS_POLL_CMD_DATA:-D2030000007ED649}
+      BMS_POLL_CMD_TEMP: ${BMS_POLL_CMD_TEMP:-D203008000705665}
+    volumes:
+      - bms_data:/data
+
+  bms-mqtt:
+    build: .
+    image: smart-bms-local:latest
+    container_name: bms-mqtt
+    restart: unless-stopped
+    network_mode: host
+    depends_on:
+      - mosquitto
+      - bms
+    command: ["python3", "-u", "src/bms_mqtt.py"]
+    environment:
+      BMS_DATA_DIR: /data
+      MQTT_HOST: 127.0.0.1
+      MQTT_PORT: 1884
+      MQTT_PREFIX: ${MQTT_PREFIX:-bms}
+      MQTT_DISCOVERY: ${MQTT_DISCOVERY:-homeassistant}
+      BMS_NAME: ${BMS_NAME:-BMS 8S 24V}
+      BMS_ID: ${BMS_ID:-bms8s}
+    volumes:
+      - bms_data:/data
+
+volumes:
+  ha_config:
+  mosquitto_data:
+  bms_data:
