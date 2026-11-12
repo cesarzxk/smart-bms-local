@@ -1,32 +1,31 @@
-# AGENTS.md — guia para assistentes de IA (Claude, Copilot, OpenCode, etc.)
+# AGENTS.md — guide for AI assistants (Claude, Copilot, OpenCode, etc.)
 
-Este arquivo é a **fonte da verdade** para qualquer agente que for mexer neste
-projeto. Leia inteiro antes de alterar código, rodar comandos com `sudo` ou
-mexer na rede.
+This file is the **source of truth** for any agent working on this project.
+Read it fully before changing code, running `sudo`, or touching the network.
 
-## 1. Objetivo do projeto
+## 1. Project goal
 
-Ler um **BMS LiFePO4 8S** através do dongle Wi‑Fi/BT do fabricante, **sem
-depender da API de nuvem do Tuya**, e entregar os dados no **Home Assistant**
-via **MQTT**, com automação local (inclusive controlando dispositivos Tuya pela
-LAN com **LocalTuya**).
+Read a **LiFePO4 8S BMS** through the vendor's Wi‑Fi/BT dongle, **without
+depending on the Tuya cloud API**, and deliver the data to **Home Assistant**
+over **MQTT**, with local automation (including controlling Tuya devices on the
+LAN with **LocalTuya**).
 
-O dongle fala MQTT/TLS com a nuvem do fabricante (Aliyun). O projeto faz um
-**proxy transparente local** (MITM) que:
+The dongle speaks MQTT/TLS with the vendor cloud (Aliyun). This project runs a
+**transparent local proxy** (MITM) that:
 
-1. intercepta o dongle (ARP spoof + DNAT),
-2. termina o TLS (o dongle **não valida** o certificado),
-3. repassa o tráfego para a nuvem real (para o app do fabricante continuar),
-4. **injeta requisições Modbus** via MQTT para pedir os dados sob demanda,
-5. decodifica as respostas e publica no Mosquitto → Home Assistant.
+1. intercepts the dongle (ARP spoof + DNAT),
+2. terminates TLS (the dongle **does not validate** the certificate),
+3. forwards traffic to the real cloud (so the vendor app keeps working),
+4. **injects Modbus requests** over MQTT to poll data on demand,
+5. decodes the responses and publishes them to Mosquitto → Home Assistant.
 
-## 2. Arquitetura
+## 2. Architecture
 
 ```
 BMS ──UART──► dongle ──TLS/MQTT:1883──► proxy (src/bms_proxy.py) ──TLS──► Aliyun
                                           │
-                                          ├─ injeta Modbus (property/set WIFI_AP_BSSID)
-                                          ├─ decodifica WIFI_Band (src/bms_codec.py)
+                                          ├─ injects Modbus (property/set WIFI_AP_BSSID)
+                                          ├─ decodes WIFI_Band (src/bms_codec.py)
                                           └─ bms_state.json
                                                     │
                                           src/bms_mqtt.py
@@ -40,111 +39,113 @@ BMS ──UART──► dongle ──TLS/MQTT:1883──► proxy (src/bms_proxy
 
 ## 3. Layout
 
-| Caminho | Papel |
+| Path | Purpose |
 |---|---|
-| `src/bms_proxy.py` | proxy TLS/MQTT + injeção do polling Modbus |
-| `src/bms_codec.py` | decodifica os blocos Modbus (`WIFI_Band`) e grava `bms_state.json` |
-| `src/bms_mqtt.py` | publica `bms/state` e registra entidades no HA (discovery) |
-| `src/arp_spoof.py` | ARP spoof unidirecional do dongle |
-| `scripts/bms-service.sh` | serviço permanente: ARP + DNAT + proxy |
-| `scripts/bms_tap.sh` | versão manual (teste) por N segundos |
-| `deploy/*.service` | units systemd (ajuste caminho/usuário) |
+| `src/bms_proxy.py` | TLS/MQTT proxy + Modbus polling injection |
+| `src/bms_codec.py` | decodes the Modbus blocks (`WIFI_Band`) and writes `bms_state.json` |
+| `src/bms_mqtt.py` | publishes `bms/state` and registers HA entities (discovery) |
+| `src/arp_spoof.py` | one-way ARP spoof for the dongle |
+| `scripts/bms-service.sh` | permanent service: ARP + DNAT + proxy |
+| `scripts/bms_tap.sh` | manual test wrapper (N seconds) |
+| `deploy/*.service` | systemd units (adjust path/user) |
 | `docker-compose.yml` | Home Assistant + Mosquitto |
-| `mosquitto/config/mosquitto.conf` | broker (anônimo no teste) |
-| `ha-config/configuration.yaml` | `default_config:` (MQTT é configurado pela UI) |
-| `.env.example` | TODAS as configurações (copie para `.env`) |
-| `README.md` | setup do usuário |
+| `mosquitto/config/mosquitto.conf` | broker (anonymous for testing) |
+| `ha-config/configuration.yaml` | `default_config:` (MQTT is configured via UI) |
+| `.env.example` | ALL settings (copy to `.env`) |
+| `README.md` | user setup (English) / `README.pt-BR.md` (Portuguese) |
 
-## 4. Regras de ouro (não viole)
+## 4. Golden rules (do not break)
 
-1. **Nunca commitar segredos.** `.env`, `cert.pem`, `key.pem`, `tuya.json`,
-   `bms_state.json`, `bms_tap.log`, `*.pcap`, `ha-config/.storage` e `mosquitto/data`
-   estão no `.gitignore`. Não remova essas entradas.
-2. **Nunca tentar a API de nuvem do Tuya de novo.** O caminho foi abandonado:
-   o modelo de produto (TuyaLink/TuyaOS) não era publicado e o data center
-   respondia `28841107 — data center is suspended`. O app mostra o rascunho de
-   desenvolvimento, mas a API vê o modelo de produção vazio
-   (`functions: []`, `command or value not support`). **Não gaste tempo nisso.**
-   A integração com o Smart Life, se necessária, é por **Matter** (com hub) ou
-   por um **medidor DC Tuya com shunt**.
-3. **Tudo é configurável por `.env`.** Não hardcode IPs, MACs, ProductKey,
-   DeviceName ou chaves. Use `os.environ.get(...)` com defaults seguros.
-4. **Peça confirmação antes de**: `sudo`, ARP spoof, `iptables`, `sysctl`,
-   reiniciar serviços, alterar `.env` ou mexer na rede. Explique o efeito.
-5. **Mudanças mínimas e consistentes.** Respeite `src/`/`scripts/`/`deploy/`.
-   Não reescreva o que funciona.
-6. **Valide sempre** com `systemctl status`, `journalctl -u bms-tap -f`,
-   `mosquitto_sub -t bms/state` e as entidades do HA.
-7. **Segurança/legal**: o MITM é para o **dongle do próprio usuário**. Não
-   ajude a interceptar terceiros nem a expor o HA/MQTT na internet sem VPN.
+1. **Never commit secrets.** `.env`, `cert.pem`, `key.pem`, `tuya.json`,
+   `bms_state.json`, `bms_tap.log`, `*.pcap`, `ha-config/.storage` and
+   `mosquitto/data` are in `.gitignore`. Do not remove those entries.
+2. **Never try the Tuya cloud API again.** That path was abandoned: the product
+   model (TuyaLink/TuyaOS) was never published and the data center answered
+   `28841107 — data center is suspended`. The app shows the development draft,
+   but the API sees an empty production model (`functions: []`,
+   `command or value not support`). **Do not waste time on it.** If Smart Life
+   integration is required, use **Matter** (with a hub) or a **Tuya DC energy
+   meter with a shunt**.
+3. **Everything is configurable via `.env`.** Do not hardcode IPs, MACs,
+   ProductKey, DeviceName or keys. Use `os.environ.get(...)` with safe defaults.
+4. **Ask for confirmation before**: `sudo`, ARP spoof, `iptables`, `sysctl`,
+   restarting services, editing `.env` or changing the network. Explain the
+   effect.
+5. **Keep changes small and consistent.** Respect `src/` / `scripts/` /
+   `deploy/`. Do not rewrite what already works.
+6. **Always validate** with `systemctl status`, `journalctl -u bms-tap -f`,
+   `mosquitto_sub -t bms/state` and the HA entities.
+7. **Security/legal**: the MITM is for the **user's own dongle**. Do not help
+   intercept third parties or expose HA/MQTT to the internet without a VPN.
 
-## 5. Cheat sheet do protocolo (o que foi descoberto)
+## 5. Protocol cheat sheet (what was discovered)
 
-- Dongle: Bouffalo **BL606**; o **MAC** costuma estar codificado no serial
-  (`DL-F` + MAC sem dois‑pontos). IP fixo/reserva DHCP é obrigatório.
-- Endpoint: `public.iot-as-mqtt.us-east-1.aliyuncs.com:1883` com **TLS**.
-- O dongle **não valida** o certificado do servidor → um self‑signed local
-  funciona. O CONNECT é MQTT 3.1.1, `clean=False`, keepalive 120.
+- Dongle: Bouffalo **BL606**; the **MAC** is usually encoded in the serial
+  (`DL-F` + MAC without colons). A DHCP reservation is required.
+- Endpoint: `public.iot-as-mqtt.us-east-1.aliyuncs.com:1883` over **TLS**.
+- The dongle **does not validate** the server certificate → a local self-signed
+  cert works. The CONNECT is MQTT 3.1.1, `clean=False`, keepalive 120.
 - ClientID: `<ProductKey>.<DeviceName>|securemode=2,...`; username
-  `<DeviceName>&<ProductKey>`; password é HMAC (não é o DeviceSecret).
-- **Polling**: publicar no tópico
-  `/sys/<PK>/<DN>/thing/service/property/set` com
+  `<DeviceName>&<ProductKey>`; the password is an HMAC (not the DeviceSecret).
+- **Polling**: publish to
+  `/sys/<PK>/<DN>/thing/service/property/set` with
   `{"method":"thing.service.property.set","id":"...","params":{"WIFI_AP_BSSID":"<CMD>"},"version":"1.0.0"}`
-  onde `<CMD>` é uma **requisição Modbus RTU em hex**:
-  - dados: `D2030000007ED649` (126 registradores a partir de 0x0000)
-  - temperaturas/info: `D203008000705665` (112 registradores a partir de 0x0080)
-- **Resposta**: `thing/event/property/post` com `params.WIFI_Band` = resposta
-  Modbus em hex (`D2 03 <count> <data> <crc16 little-endian>`).
-- Mapa de registradores (bloco 0x0000, conferido):
-  - `regs[0..7]` = tensões das células (mV)
-  - `regs[0x28] / 10` = tensão do pack (V)
-  - `(regs[0x29] - 30000) / 10` = corrente (A)
+  where `<CMD>` is a **raw Modbus RTU request in hex**:
+  - data: `D2030000007ED649` (126 registers starting at 0x0000)
+  - temperatures/info: `D203008000705665` (112 registers starting at 0x0080)
+- **Response**: `thing/event/property/post` with `params.WIFI_Band` = Modbus
+  response in hex (`D2 03 <count> <data> <crc16 little-endian>`).
+- Register map (block 0x0000, verified):
+  - `regs[0..7]` = cell voltages (mV)
+  - `regs[0x28] / 10` = pack voltage (V)
+  - `(regs[0x29] - 30000) / 10` = current (A)
   - `regs[0x2A] / 10` = SOC (%)
-  - `regs[0x2B]` / `regs[0x2C]` = célula máx/mín (mV)
-  - temperaturas no bloco 0x0080: `regs[0x0A..0x0E] / 100` (°C)
-- **Cuidado com offsets**: `regs[i]` é **índice de registrador** (2 bytes),
-  não offset de byte. Essa confusão já gerou tensão 64,7 V e corrente -2993 A.
-- O dongle só envia os blocos grandes quando a nuvem pede (property/set). Sem
-  o polling, ficam só os DPs de MOS.
+  - `regs[0x2B]` / `regs[0x2C]` = max/min cell (mV)
+  - temperatures in block 0x0080: `regs[0x0A..0x0E] / 100` (°C)
+- **Mind the offsets**: `regs[i]` is a **register index** (2 bytes), not a byte
+  offset. This confusion already produced 64.7 V and -2993 A.
+- The dongle only sends the big blocks when the cloud asks for them
+  (property/set). Without polling, only the MOS DPs show up.
 
-## 6. Armadilhas já resolvidas (não repita)
+## 6. Known pitfalls (do not repeat)
 
-| Sintoma | Causa | Correção |
+| Symptom | Cause | Fix |
 |---|---|---|
-| Dongle fica em loop de DNS (`iot-auth-global`) | ARP spoof **bidirecional** quebra o DNS | Use spoof **unidirecional** (`arp_spoof.py ... oneway`) |
-| Tunel cai a cada ~10 s | socket de saída com timeout=10 | `up.settimeout(None)` (bloqueante) |
-| Dongle autentica (`rc=0`) mas não recebe dados/servidor | Docker deixa `FORWARD` em `DROP` | `iptables -I FORWARD -s/-d <dongle> -j ACCEPT` (o script faz) |
-| HA não aceita `mqtt:` no YAML | integração MQTT virou UI | remova do YAML e adicione em *Add Integration → MQTT* |
-| Porta 1883 em conflito | proxy e Mosquitto | Mosquitto no host **1884** (`1884:1883`) |
-| Entidades com `unavailable`/avisos de template | publicador pegou estado parcial | `bms_mqtt.py` só publica com `voltage`/`soc`/`cells` e faz merge |
-| Dongle muda de IP | DHCP | reserva DHCP pelo MAC |
+| Dongle loops on DNS (`iot-auth-global`) | **two-way** ARP spoof breaks DNS | Use **one-way** spoof (`arp_spoof.py ... oneway`) |
+| Tunnel drops every ~10 s | outbound socket with timeout=10 | `up.settimeout(None)` (blocking) |
+| Dongle authenticates (`rc=0`) but gets no data | Docker leaves `FORWARD` as `DROP` | `iptables -I FORWARD -s/-d <dongle> -j ACCEPT` (the script does this) |
+| HA rejects `mqtt:` in YAML | MQTT integration moved to UI | remove it from YAML and add via *Add Integration → MQTT* |
+| Port 1883 conflict | proxy and Mosquitto | Mosquitto on host **1884** (`1884:1883`) |
+| `unavailable` entities / template warnings | publisher picked up a partial state | `bms_mqtt.py` only publishes with `voltage`/`soc`/`cells` and merges |
+| Dongle IP changes | DHCP | DHCP reservation by MAC |
 
-## 7. Como reproduzir do zero
+## 7. Reproducing from scratch
 
-1. **Descobrir o dongle**: reserva DHCP no roteador; anote IP e MAC.
-2. **Configurar**: `cp .env.example .env` e preencha `BMS_DONGLE_IP`,
-   `BMS_DONGLE_MAC`, `BMS_HOST_IP` (ou auto).
-3. **Descobrir ProductKey/DeviceName**: rode
-   `sudo bash scripts/bms_tap.sh 60` e leia o `CONNECT` no log/`journalctl`.
-   Preencha no `.env`.
+1. **Find the dongle**: reserve its IP on the router; note IP and MAC.
+2. **Configure**: `cp .env.example .env` and set `BMS_DONGLE_IP`,
+   `BMS_DONGLE_MAC`, `BMS_HOST_IP` (or leave empty for auto).
+3. **Find ProductKey/DeviceName**: run
+   `sudo bash scripts/bms_tap.sh 60` and read the `CONNECT` from the log or
+   `journalctl`. Fill them in `.env`.
 4. **Python**: `python3 -m venv .venv && .venv/bin/pip install -r requirements.txt`
-5. **HA + MQTT**: `docker compose up -d`; abra `http://<host>:8123`, crie a conta
-   e adicione **MQTT** (broker `mosquitto`, porta `1883`, sem auth).
-6. **Serviços**: ajuste `deploy/*.service` (`/opt/bms`, `User=`) e
+5. **HA + MQTT**: `docker compose up -d`; open `http://<host>:8123`, create the
+   account and add **MQTT** (broker `mosquitto`, port `1883`, no auth).
+6. **Services**: adjust `deploy/*.service` (`/opt/bms`, `User=`) and
    `systemctl enable --now bms-tap bms-mqtt`.
-7. **Validar**: `mosquitto_sub -t bms/state -v` e as entidades no HA.
-8. **LocalTuya** (opcional): instale o custom component em
-   `ha-config/custom_components/localtuya`, adicione IP/Device ID/Local Key e
-   versão 3.4; mapeie o DP 1 como switch/light.
+7. **Validate**: `mosquitto_sub -t bms/state -v` and the HA entities.
+8. **LocalTuya** (optional): install the custom component into
+   `ha-config/custom_components/localtuya`, add IP/Device ID/Local Key and
+   protocol 3.4; map DP 1 as switch/light.
 
-## 8. Como o agente deve ajudar
+## 8. How the agent should help
 
-- Comece lendo `README.md`, `AGENTS.md` e `.env.example`.
-- Antes de codar, **descreva o plano** e peça OK se envolver rede/root.
-- Prefira editar `src/`/`scripts/` com mudanças pequenas e testáveis.
-- Use `rg`/`grep`, `systemctl`, `journalctl`, `mosquitto_sub` para diagnosticar.
-- Não exponha valores de `.env` em respostas, commits ou logs de exemplo.
-- Se o usuário pedir “Smart Life/Tuya”, explique o caminho **Matter** ou
-  **medidor DC**; não reabra a API de nuvem do Tuya.
-- Se algo não puder ser feito sem a senha/root, **peça ao usuário** para rodar o
-  comando; nunca peça a senha.
+- Start by reading `README.md`, `AGENTS.md` and `.env.example`.
+- Before coding, **describe the plan** and ask for approval if it involves
+  network/root.
+- Prefer small, testable edits in `src/` / `scripts/`.
+- Use `rg`/`grep`, `systemctl`, `journalctl`, `mosquitto_sub` to diagnose.
+- Never expose `.env` values in replies, commits or sample logs.
+- If the user asks for “Smart Life/Tuya”, explain the **Matter** or
+  **DC meter** route; do not reopen the Tuya cloud API.
+- If something requires root/the password, **ask the user** to run the command;
+  never ask for the password.

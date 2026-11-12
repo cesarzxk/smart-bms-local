@@ -162,7 +162,7 @@ Step-by-step (network, HA migration, cutover, validation) in
 
 ## AI assistant instructions
 
-- `AGENTS.md` — source of truth (OpenCode/Codex; Portuguese)
+- `AGENTS.md` — source of truth (OpenCode/Codex)
 - `CLAUDE.md` — Claude Code
 - `.github/copilot-instructions.md` — GitHub Copilot
 

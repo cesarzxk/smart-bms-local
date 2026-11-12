@@ -163,7 +163,7 @@ Passo a passo (rede, migração do HA, cutover, validação) em
 
 ## Instruções para assistentes de IA
 
-- `AGENTS.md` — fonte da verdade (OpenCode/Codex, e base para os demais)
+- `AGENTS.md` — fonte da verdade, **em inglês** (OpenCode/Codex, e base para os demais)
 - `CLAUDE.md` — Claude Code
 - `.github/copilot-instructions.md` — GitHub Copilot
 
