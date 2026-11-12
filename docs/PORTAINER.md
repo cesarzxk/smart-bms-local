@@ -57,6 +57,10 @@ Para fixar versão, use uma tag no GitHub (`v1.0.0`) e troque a imagem para
 | `BMS_DEVICE_NAME` | do `CONNECT` do dongle |
 
 Opcionais (`BMS_HOST_IP`, `BMS_IFACE`, `BMS_GATEWAY_*`) são auto-detectados.
+**Deixe-os vazios** — se você copiou o `.env` de outra máquina, esses valores
+apontam para a interface/IP da máquina antiga (ex.: `enp6s0`) e o ARP spoof
+falha com `No such device`.
+
 `TZ`, `BMS_NAME`, `BMS_ID`, `MQTT_*` têm defaults.
 
 ## Depois do deploy

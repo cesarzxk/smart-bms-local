@@ -13,9 +13,19 @@ fi
 export BMS_DATA_DIR="${BMS_DATA_DIR:-$ROOT}"
 
 IFACE="${BMS_IFACE:-$(ip route | awk '/^default/{print $5; exit}')}"
+if [ -z "$IFACE" ] || [ ! -d "/sys/class/net/$IFACE" ]; then
+  echo "ERRO: interface '$IFACE' nao existe nesta maquina."
+  echo "      Defina BMS_IFACE no .env ou deixe vazio para auto-detectar."
+  echo "      Interfaces: $(ls /sys/class/net | tr '\n' ' ')"
+  exit 1
+fi
 GW="${BMS_GATEWAY_IP:-$(ip route | awk '/^default/{print $3; exit}')}"
 GW_MAC="${BMS_GATEWAY_MAC:-$(ip neigh show "$GW" | awk '{print $5; exit}')}"
 OUR_MAC="$(cat "/sys/class/net/$IFACE/address")"
+if [ -z "$OUR_MAC" ]; then
+  echo "ERRO: nao consegui ler a MAC da interface $IFACE"
+  exit 1
+fi
 ME="${BMS_HOST_IP:-$(ip -4 addr show "$IFACE" | awk '/inet /{print $2}' | cut -d/ -f1 | head -1)}"
 SRC="${BMS_DONGLE_IP:?defina BMS_DONGLE_IP no .env}"
 SRC_MAC="${BMS_DONGLE_MAC:?defina BMS_DONGLE_MAC no .env}"
@@ -26,10 +36,13 @@ if [ "$(id -u)" -ne 0 ]; then
   exit 1
 fi
 
-if [ ! -f "$ROOT/cert.pem" ] || [ ! -f "$ROOT/key.pem" ]; then
-  openssl req -x509 -newkey rsa:2048 -nodes \
-    -keyout "$ROOT/key.pem" -out "$ROOT/cert.pem" \
-    -days 3650 -subj "/CN=bms-local" 2>/dev/null
+if [ ! -f "$BMS_DATA_DIR/cert.pem" ] || [ ! -f "$BMS_DATA_DIR/key.pem" ]; then
+  if ! openssl req -x509 -newkey rsa:2048 -nodes \
+    -keyout "$BMS_DATA_DIR/key.pem" -out "$BMS_DATA_DIR/cert.pem" \
+    -days 3650 -subj "/CN=bms-local"; then
+    echo "ERRO: falha ao gerar certificado em $BMS_DATA_DIR"
+    exit 1
+  fi
 fi
 
 sysctl -w net.ipv4.ip_forward=1 >/dev/null
