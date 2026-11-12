@@ -10,6 +10,12 @@ STATE = os.path.join(BASE, "bms_state.json")
 CONF = os.path.join(BASE, "tuya.json")
 
 state = {}
+try:
+    with open(STATE) as f:
+        state.update(json.load(f))
+except Exception:
+    pass
+
 TUYA = None
 cloud = None
 last_push = 0.0

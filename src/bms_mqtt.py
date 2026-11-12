@@ -71,9 +71,7 @@ def publish_discovery():
             "name": name,
             "unique_id": f"{DEVICE_ID}_{key.lower()}",
             "state_topic": f"{PREFIX}/state",
-            "value_template": "{{ value_json.%s }}" % key,
-            "payload_on": "1",
-            "payload_off": "0",
+            "value_template": "{{ 'ON' if value_json.%s | int(9) == 1 else ('OFF' if value_json.%s | int(9) == 0 else 'unknown') }}" % (key, key),
             "device": DEVICE,
             "device_class": "running",
         }
