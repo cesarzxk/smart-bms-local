@@ -77,6 +77,13 @@ No `CONNECT` aparece o ClientID:
 Exemplo: `a1abc...xyz.FhGyi...|...` → ProductKey `a1abc...xyz`,
 DeviceName `FhGyi...`.
 
+Dependências Python:
+
+```bash
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+```
+
 ## 2. Home Assistant + Mosquitto
 
 ```bash
